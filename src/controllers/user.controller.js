@@ -4,6 +4,8 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import { Image } from "../models/image.mode.js";
+import { Album } from "../models/album.model.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -139,6 +141,7 @@ const loginUser = asyncHandler(async (req, res) => {
         200,
         {
           user: loggedInUser,
+          role: user.role,
           accessToken,
           refreshToken,
         },
@@ -219,4 +222,92 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+const uploadImageController = asyncHandler(async (req, res) => {
+  // console.log("req.file: ",req.file); 
+  const { title, description } = req.body;
+
+  let Img;
+  if (req.file) {
+    Img = req.file.path;
+    // console.log("Img: ",Img)
+  } else {
+    throw new ApiError(400, "No image file uploaded");
+  }
+
+  const imageUrl = await uploadOnCloudinary(Img);
+
+  if (!imageUrl) {
+    throw new ApiError(500, "Failed to upload image");
+  }
+
+  const image = await Image.create({
+    title,
+    imgurl: imageUrl?.url,
+    description,
+    uploadedBy: req.user._id,
+    isPublic: false,
+  });
+
+  return res.status(201).json(new ApiResponse(201, image, "Image uploaded successfully"));
+});
+
+const createAlbum = asyncHandler(async (req, res)=>{
+  console.log("req.body: ", req.body)
+  const {name, createdBy} = req.body;
+
+  if(!name){
+    throw new ApiError(400, "Album name is required");
+  }
+
+  if(!createdBy){
+    throw new ApiError(400, "createdBy is required");
+  }
+
+  const album = await Album.create({
+    name,
+    createdBy,
+  })
+
+  return res
+  .status(201)
+  .json(new ApiResponse(201, album, "Album is created successfully"))
+  
+})
+
+const addImageToAlbum = asyncHandler(async (req, res)=>{
+  const {albumId, imageId} = req.params;
+
+  const album = await Album.findById(albumId);
+
+  if(!album){
+    throw new ApiError(404, "Album not found");
+  }
+
+  const image = await Image.findOne({
+    _id:imageId,
+    isPublic:true,
+  });
+
+  if(!image){
+    throw new ApiError(404, "Image not found");
+  }
+
+  album.images.push(image._id);
+  await album.save();
+
+  return res
+  .status(200)
+  .json(new ApiResponse(200, album, "Image added to album successfully"));
+
+})
+
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  uploadImageController,
+  createAlbum,
+  addImageToAlbum,
+};

@@ -10,7 +10,7 @@ const imageSchema = new Schema(
       index: true,
     },
 
-    url: {
+    imgurl: {
       type: String, // url from cloudinary
       required: true,
     },
