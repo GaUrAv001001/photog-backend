@@ -129,8 +129,11 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const options = {
     httpOnly: true,
-    secure: true,
+    secure: false,
+    sameSite: 'None',
   };
+
+  console.log("user logged in successfully")
 
   return res
     .status(200)
@@ -151,6 +154,7 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
+  console.log("user logged out");
   await User.findByIdAndUpdate(
     req.user._id,
     {
@@ -165,7 +169,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   const options = {
     httpOnly: true,
-    secure: true,
+    secure: false,
+    sameSite: 'None',
   };
 
   return res
@@ -200,7 +205,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     const options = {
       httpOnly: true,
-      secure: true,
+      secure: false,
+      sameSite: 'None',
     };
 
     const { accessToken, newRefreshToken } =
@@ -245,7 +251,7 @@ const uploadImageController = asyncHandler(async (req, res) => {
     imgurl: imageUrl?.url,
     description,
     uploadedBy: req.user._id,
-    isPublic: false,
+    isPublic: req.body.isPublic || false,
   });
 
   return res.status(201).json(new ApiResponse(201, image, "Image uploaded successfully"));
@@ -274,32 +280,103 @@ const createAlbum = asyncHandler(async (req, res)=>{
   
 })
 
-const addImageToAlbum = asyncHandler(async (req, res)=>{
-  const {albumId, imageId} = req.params;
+// const addImageToAlbum = asyncHandler(async (req, res)=>{
+//   const {albumId, imageId} = req.params;
 
-  const album = await Album.findById(albumId);
+//   const album = await Album.findById(albumId);
 
-  if(!album){
-    throw new ApiError(404, "Album not found");
-  }
+//   if(!album){
+//     throw new ApiError(404, "Album not found");
+//   }
 
-  const image = await Image.findOne({
-    _id:imageId,
-    isPublic:true,
+//   const image = await Image.findOne({
+//     _id:imageId,
+//     isPublic:true,
+//   });
+
+//   if(!image){
+//     throw new ApiError(404, "Image not found");
+//   }
+
+//   album.images.push(image._id);
+//   await album.save();
+
+//   return res
+//   .status(200)
+//   .json(new ApiResponse(200, album, "Image added to album successfully"));
+
+// })
+
+const addImageToAlbum = asyncHandler(async (req, res) => {
+  const { albumId, imageId } = req.params;
+
+  // Find the album created by the user
+  const album = await Album.findOne({
+    _id: albumId,
+    createdBy: req.user._id,  // Ensure the album belongs to the user
   });
 
-  if(!image){
-    throw new ApiError(404, "Image not found");
+  if (!album) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Album not found or you do not have access to this album"));
   }
 
+  // Find the public image
+  const image = await Image.findOne({
+    _id: imageId,
+    isPublic: true,
+  });
+
+  if (!image) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Image not found or not public"));
+  }
+
+  // Check if the image is already in the album
+  // if (album.images.includes(image._id)) {
+  //   return res
+  //     .status(400)
+  //     .json(new ApiResponse(400, null, "Image already exists in the album"));
+  // }
+
+  // Add the image to the album
   album.images.push(image._id);
   await album.save();
 
   return res
-  .status(200)
-  .json(new ApiResponse(200, album, "Image added to album successfully"));
+    .status(200)
+    .json(new ApiResponse(200, album, "Image added to album successfully"));
+});
 
-})
+
+const getUsersAlbum = asyncHandler(async (req, res)=>{
+  const album = await Album.findOne({
+    createdBy:req.user._id
+  }).populate("images");
+
+  if(!album){
+    throw new ApiError(404, "No album found for this user");
+  }
+
+  return res
+  .status(200)
+  .json(new ApiResponse(200, album, "User album fetched successfully"));
+
+});
+
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  // Fetch the user based on the ID stored in req.user (from JWT middleware)
+  const user = await User.findById(req.user._id).select('-password -refreshToken');
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res.status(200).json(new ApiResponse(200, user, "User details fetched successfully"));
+});
 
 
 export {
@@ -310,4 +387,6 @@ export {
   uploadImageController,
   createAlbum,
   addImageToAlbum,
+  getUsersAlbum,
+  getCurrentUser,
 };

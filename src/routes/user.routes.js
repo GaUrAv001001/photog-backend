@@ -1,34 +1,50 @@
 import { Router } from "express";
-import { loginUser, logoutUser, registerUser, refreshAccessToken, uploadImageController, createAlbum, addImageToAlbum } from "../controllers/user.controller.js";
-import {upload} from "../middlewares/multer.middleware.js"
+import {
+  loginUser,
+  logoutUser,
+  registerUser,
+  refreshAccessToken,
+  uploadImageController,
+  createAlbum,
+  addImageToAlbum,
+  getUsersAlbum,
+  getCurrentUser,
+} from "../controllers/user.controller.js";
+import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { authorizeRoles } from '../middlewares/role.middleware.js';
+import { authorizeRoles } from "../middlewares/role.middleware.js";
 
-const router = Router()
+const router = Router();
 
-router.route("/register").post( 
-    upload.fields([
-        {
-            name:"avatar",
-            maxCount:1
-        }
-    ]),
-    registerUser
-)
+router.route("/register").post(
+  upload.fields([
+    {
+      name: "avatar",
+      maxCount: 1,
+    },
+  ]),
+  registerUser
+);
 
-router.route("/login").post(loginUser)
+router.route("/login").post(loginUser);
 
-// secured routes 
+// secured routes
 
-router.route("/logout").post(verifyJWT, logoutUser)
-router.route("/refresh-token").post(refreshAccessToken)
-router.route("/upload-image").post(
-    verifyJWT, 
-    authorizeRoles("admin", "superadmin"),  
+router.route("/logout").post(verifyJWT, logoutUser);
+router.route("/refresh-token").post(refreshAccessToken);
+router
+  .route("/upload-image")
+  .post(
+    verifyJWT,
+    authorizeRoles("admin", "superadmin"),
     upload.single("imgurl"),
     uploadImageController
-)
-router.route("/create-album").post(verifyJWT, createAlbum)
-router.route("/album/:albumId/images/:imageId").post(verifyJWT, addImageToAlbum)
+  );
+router.route("/create-album").post(verifyJWT, createAlbum);
+router
+  .route("/album/:albumId/images/:imageId")
+  .post(verifyJWT, addImageToAlbum);
+router.route("/get-album").get(verifyJWT, getUsersAlbum);
+router.route("/current-user").get(verifyJWT, getCurrentUser);
 
 export default router;
