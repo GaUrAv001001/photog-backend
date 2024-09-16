@@ -6,13 +6,14 @@ import jwt from "jsonwebtoken";
 export const verifyJWT = asyncHandler(async (req, res, next) => {
   try {
     // const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
-    // console.log("token-------->: ",token)
+
     const token =
       req.cookies?.accessToken ||
       req.header("Authorization")?.replace("Bearer ", "");
-    console.log("Token from cookies: ", req.cookies?.accessToken); // For debugging
-    console.log("Token from header: ", req.header("Authorization")); // For debugging
-    console.log("Extracted Token: ", token); // For debugging
+
+    // console.log("Token from cookies: ", req.cookies?.accessToken); // For debugging
+    // console.log("Token from header: ", req.header("Authorization")); // For debugging
+    // console.log("Extracted Token: ", token); // For debugging
 
     if (!token) {
       throw new ApiError(401, "Unauthorized request");

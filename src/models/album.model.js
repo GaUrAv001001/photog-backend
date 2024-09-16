@@ -17,6 +17,11 @@ const albumSchema = new Schema(
         },
         ],
 
+        isDeleted: {
+            type: Boolean,
+            default: false,
+          },
+
         createdBy:{
             type:Schema.Types.ObjectId,
             ref:"User",
