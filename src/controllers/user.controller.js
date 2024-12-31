@@ -7,6 +7,19 @@ import jwt from "jsonwebtoken";
 import { Image } from "../models/image.mode.js";
 import { Album } from "../models/album.model.js";
 
+const optionsAccessToken ={
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production', // For development, use false (since you're not using HTTPS)
+  sameSite: 'None',
+  maxAge: 1000 * 60 * 60 * 24  // 1 day
+}
+const optionsRefreshToken ={
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',  // For development, use false (since you're not using HTTPS)
+  sameSite: 'None',
+  maxAge: 1000 * 60 * 60 * 24 * 7  // 1 week
+}
+
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
     const user = await User.findById(userId);
@@ -26,15 +39,6 @@ const generateAccessAndRefreshTokens = async (userId) => {
 };
 
 const registerUser = asyncHandler(async (req, res) => {
-  // get users details from frontend
-  // validatioin - not empty
-  // check if user already exists: username, email
-  // check for images,
-  // upload them to cloudinary, image
-  // create user object - create entry in db
-  // remove password and refresh token field from reponse
-  // check for user creation
-  // return res
 
   console.log("register: ", req.body);
 
@@ -130,18 +134,18 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
 
-  const options = {
-    httpOnly: true,
-    secure: false,
-    sameSite: 'Lax',
-  };
+  // const options = {
+  //   httpOnly: true,
+  //   secure: false,
+  //   sameSite: 'None',
+  // };
 
   console.log("user logged in successfully");
 
   return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("accessToken", accessToken, optionsAccessToken)
+    .cookie("refreshToken", refreshToken, optionsRefreshToken)
     .json(
       new ApiResponse(
         200,
@@ -170,55 +174,60 @@ const logoutUser = asyncHandler(async (req, res) => {
     }
   );
 
-  const options = {
-    httpOnly: true,
-    secure: false,
-    sameSite: 'Lax',
-  };
+  // const options = {
+  //   httpOnly: true,
+  //   secure: false,
+  //   sameSite: 'None',
+  // };
 
   return res
     .status(200)
-    .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options)
+    .clearCookie("accessToken", optionsAccessToken)
+    .clearCookie("refreshToken", optionsRefreshToken)
     .json(new ApiResponse(200, {}, "User logged out"));
 });
 
+
 // const refreshAccessToken = asyncHandler(async (req, res) => {
-//   const incommingRefreshToken =
-//     req.cookies.refreshToken || req.body.refreshToken;
+//   const incommingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
 //   if (!incommingRefreshToken) {
 //     throw new ApiError(401, "Unauthorized request");
 //   }
 
 //   try {
-//     const decodedToken = jwt.verify(
-//       incommingRefreshToken,
-//       process.env.REFRESH_TOKEN_SECRETE
-//     );
+//     // Verify the refresh token using the secret
+//     const decodedToken = jwt.verify(incommingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
 
-//     const user = await User.findById(decodedToken?._id);
+//     // Find the user by ID extracted from the refresh token
+//     const user = await User.findById(decodedToken._id);
 //     if (!user) {
 //       throw new ApiError(401, "Invalid refresh token");
 //     }
 
-//     if (incommingRefreshToken !== user?.refreshToken) {
-//       throw new ApiError(401, "Refresh token is expired or used");
+//     // Ensure the token matches the one stored in the database
+//     if (incommingRefreshToken !== user.refreshToken) {
+//       throw new ApiError(401, "Refresh token is expired or invalid");
 //     }
+
+//     // Generate new access and refresh tokens
+//     const { accessToken, newRefreshToken } = await generateAccessAndRefreshTokens(user._id);
+
+//     // Update the user's refresh token in the database
+//     user.refreshToken = newRefreshToken;
+//     await user.save();
 
 //     const options = {
 //       httpOnly: true,
-//       secure: false,
-//       sameSite: "None",
+//       secure: process.env.NODE_ENV === 'production', 
+//       sameSite: 'Lax',
 //     };
 
-//     const { accessToken, newRefreshToken } =
-//       await generateAccessAndRefreshTokens(user._id);
-
+//     // Send new tokens as cookies
 //     return res
 //       .status(200)
 //       .cookie("accessToken", accessToken, options)
-//       .cookie("newRefreshToken", newRefreshToken, options)
+//       .cookie("refreshToken", newRefreshToken, options) // send the new refresh token
 //       .json(
 //         new ApiResponse(
 //           200,
@@ -231,26 +240,27 @@ const logoutUser = asyncHandler(async (req, res) => {
 //   }
 // });
 
-const refreshAccessToken = asyncHandler(async (req, res) => {
-  const incommingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
-  if (!incommingRefreshToken) {
-    throw new ApiError(401, "Unauthorized request");
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Unauthorized request: No refresh token provided");
   }
 
   try {
     // Verify the refresh token using the secret
-    const decodedToken = jwt.verify(incommingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+    const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
 
     // Find the user by ID extracted from the refresh token
     const user = await User.findById(decodedToken._id);
     if (!user) {
-      throw new ApiError(401, "Invalid refresh token");
+      throw new ApiError(401, "Invalid refresh token: User not found");
     }
 
     // Ensure the token matches the one stored in the database
-    if (incommingRefreshToken !== user.refreshToken) {
-      throw new ApiError(401, "Refresh token is expired or invalid");
+    if (incomingRefreshToken !== user.refreshToken) {
+      throw new ApiError(401, "Invalid refresh token: Mismatch with stored token");
     }
 
     // Generate new access and refresh tokens
@@ -260,27 +270,20 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     user.refreshToken = newRefreshToken;
     await user.save();
 
-    // Options for secure cookies (set secure to true in production)
-    const options = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Ensure secure cookies in production
-      sameSite: 'Lax',
-    };
+    // const options = {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === 'production', // Ensure cookies are sent over HTTPS in production
+    //   sameSite: 'strict', // Consider 'Strict' if you don’t need cross-site requests
+    // };
 
     // Send new tokens as cookies
     return res
       .status(200)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", newRefreshToken, options) // send the new refresh token
-      .json(
-        new ApiResponse(
-          200,
-          { accessToken, refreshToken: newRefreshToken },
-          "Access token refreshed"
-        )
-      );
+      .cookie("accessToken", accessToken, optionsAccessToken)
+      .cookie("refreshToken", newRefreshToken, optionsRefreshToken) // Send new refresh token
+      .json(new ApiResponse(200, { accessToken, refreshToken: newRefreshToken }, "Access token refreshed"));
   } catch (error) {
-    throw new ApiError(401, error?.message || "Invalid refresh token");
+    throw new ApiError(401, error?.message || "Invalid refresh token: Error during token refresh");
   }
 });
 
@@ -387,7 +390,7 @@ const addImageToAlbum = asyncHandler(async (req, res) => {
   // Find the album created by the user
   const album = await Album.findOne({
     _id: albumId,
-    createdBy: req.user._id, // Ensure the album belongs to the user
+    createdBy: req.user._id, 
   });
 
   if (!album) {
@@ -469,8 +472,8 @@ const getAlbumById = asyncHandler(async (req, res) => {
 
   // Fetch only the image URLs for each image ID in the album
   const images = await Image.find(
-    { _id: { $in: album.images } }, // Find images where the ID is in the album's images array
-    'imgurl' // Projection: only include the imgurl field
+    { _id: { $in: album.images } }, 
+    'imgurl' 
   );
 
   // Extract the URLs from the fetched images
@@ -480,20 +483,32 @@ const getAlbumById = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, { imageUrls: imageUrls }, 'Album image URLs fetched successfully'));
 });
 
+// const getCurrentUser = asyncHandler(async (req, res) => {
+//   // Fetch the user based on the ID stored in req.user (from JWT middleware)
+//   const user = await User.findById(req.user._id).select(
+//     "-password -refreshToken"
+//   );
+
+//   if (!user) {
+//     throw new ApiError(404, "User not found");
+//   }
+
+//   return res
+//     .status(200)
+//     .json(new ApiResponse(200, user, "User details fetched successfully"));
+// });
+
 const getCurrentUser = asyncHandler(async (req, res) => {
   // Fetch the user based on the ID stored in req.user (from JWT middleware)
-  const user = await User.findById(req.user._id).select(
-    "-password -refreshToken"
-  );
+  const user = await User.findById(req.user._id).select("-password -refreshToken");
 
   if (!user) {
-    throw new ApiError(404, "User not found");
+    return res.status(404).json(new ApiResponse(404, null, "User not found"));
   }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "User details fetched successfully"));
+  return res.status(200).json(new ApiResponse(200, user, "User details fetched successfully"));
 });
+
 
 const getALlPublicImages = asyncHandler(async(req, res)=>{
     const publicImages = await Image.find({isPublic:true});
@@ -523,6 +538,7 @@ const getAllUserAndAdmin = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, user, "Users and admins fetched successfully"));
 });
+
 
 
 export {
