@@ -105,6 +105,7 @@ const loginUser = asyncHandler(async (req, res) => {
   // password check
   // access and refresh token
   // send cookie
+  console.log( "loggedIn user: ", req.body)
 
   const { email, username, password } = req.body;
 
@@ -234,18 +235,19 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 const uploadImageController = asyncHandler(async (req, res) => {
-  // console.log("req.file: ",req.file);
+  console.log("req.file: ",req.file);
   const { title, description } = req.body;
 
   let Img;
   if (req.file) {
     Img = req.file.path;
-    // console.log("Img: ",Img)
+    console.log("Img: ",Img)
   } else {
     throw new ApiError(400, "No image file uploaded");
   }
 
   const imageUrl = await uploadOnCloudinary(Img);
+  console.log("image=> ", imageUrl);
 
   if (!imageUrl) {
     throw new ApiError(500, "Failed to upload image");

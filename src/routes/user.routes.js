@@ -41,7 +41,7 @@ router
   .post(
     verifyJWT,
     authorizeRoles("admin", "superadmin"),
-    upload.single("imgurl"),
+    upload.single("imgUrl"),
     uploadImageController
   );
 router.route("/create-album").post(verifyJWT, createAlbum);
